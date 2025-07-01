@@ -1,49 +1,18 @@
-import streamlit as st
-import requests
+from azure.cognitiveservices.vision.computervision import ComputerVisionClient
+from msrest.authentication import CognitiveServicesCredentials
 
-st.set_page_config(page_title="Análisis de texto", page_icon="🧠")
+endpoint = "https://<TU_ENDPOINT>.cognitiveservices.azure.com/"
+key = "<TU_API_KEY>"
 
-st.title("🧠 Analizador de Sentimiento y Lenguaje")
-st.markdown("Escribe un texto y analizaremos su idioma y sentimiento usando Azure Cognitive Services.")
+client = ComputerVisionClient(endpoint, CognitiveServicesCredentials(key))
 
-# Entradas
-user_input = st.text_area("✍️ Escribe tu texto aquí")
+# Analiza una imagen desde una URL
+image_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Shaki_waterfall.jpg/800px-Shaki_waterfall.jpg"
+features = ["description", "tags"]
 
-if st.button("Analizar"):
-    if not user_input:
-        st.warning("Por favor, ingresa un texto.")
-    else:
-        endpoint = st.secrets["AZURE_TEXT_ENDPOINT"]
-        key = st.secrets["AZURE_TEXT_API_KEY"]
-        url = endpoint + "/text/analytics/v3.1/analyze"
+analysis = client.analyze_image(image_url, visual_features=features)
 
-        headers = {
-            "Ocp-Apim-Subscription-Key": key,
-            "Content-Type": "application/json"
-        }
+for caption in analysis.description.captions:
+    print(f"Descripción: '{caption.text}' con confianza {caption.confidence:.2f}")
 
-        payload = {
-            "kind": "SentimentAnalysis",
-            "parameters": {
-                "modelVersion": "latest"
-            },
-            "analysisInput": {
-                "documents": [
-                    {"id": "1", "language": "es", "text": user_input}
-                ]
-            }
-        }
-
-        response = requests.post(url, headers=headers, json=payload)
-
-        if response.status_code == 200:
-            result = response.json()
-            sentiment = result['results']['documents'][0]['sentiment']
-            confidence = result['results']['documents'][0]['confidenceScores']
-            st.success(f"✅ Sentimiento detectado: **{sentiment.upper()}**")
-            st.write("Confianza del modelo:")
-            st.json(confidence)
-        else:
-            st.error("Ocurrió un error al conectar con la API")
-            st.text(response.json())
 
