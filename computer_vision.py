@@ -1,15 +1,23 @@
-import requests
 import streamlit as st
+import requests
 
-# API keys (guardadas con st.secrets en producción)
+st.set_page_config(page_title="Analizador de Sentimientos", page_icon="💬")
+
+# Encabezado
+st.title("💬 Analizador de Sentimientos con Azure")
+st.markdown("Escribe un texto en español y detectaremos si es positivo, neutral o negativo usando **Azure Cognitive Services**.")
+
+# API Key y Endpoint desde Secrets
 API_KEY = st.secrets["AZURE_TEXT_API_KEY"]
 ENDPOINT = st.secrets["AZURE_TEXT_ENDPOINT"]
 
+# Headers para autenticación
 headers = {
     "Ocp-Apim-Subscription-Key": API_KEY,
     "Content-Type": "application/json"
 }
 
+# Función para analizar sentimiento
 def analizar_sentimiento(texto):
     data = {
         "documents": [
@@ -24,12 +32,23 @@ def analizar_sentimiento(texto):
     response = requests.post(url, headers=headers, json=data)
     return response.json()
 
-st.title("🔍 Analizador de Sentimiento con Azure")
+# Text input
+texto_usuario = st.text_area("✍️ Escribe tu texto aquí:")
 
-texto = st.text_area("Escribe un texto para analizar el sentimiento")
+if st.button("🔍 Analizar"):
+    if texto_usuario.strip() == "":
+        st.warning("Por favor, escribe algo para analizar.")
+    else:
+        resultado = analizar_sentimiento(texto_usuario)
 
-if st.button("Analizar"):
-    resultado = analizar_sentimiento(texto)
-    sentimiento = resultado['documents'][0]['sentiment']
-    st.write(f"💬 El sentimiento detectado es: **{sentimiento.upper()}**")
+        if "error" in resultado:
+            st.error("❌ Ocurrió un error al procesar el texto.")
+            st.json(resultado)
+        else:
+            sentimiento = resultado["documents"][0]["sentiment"]
+            confianza = resultado["documents"][0]["confidenceScores"]
+
+            st.success(f"📌 Sentimiento detectado: **{sentimiento.upper()}**")
+            st.write("🔢 Confianza:")
+            st.json(confianza)
 
