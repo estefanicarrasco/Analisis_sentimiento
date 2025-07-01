@@ -1,94 +1,35 @@
+import requests
 import streamlit as st
-import openai
-from PIL import Image
 
-st.set_page_config(page_title = "Chatbot usando la API de OpenAI", page_icon = "😉")
+# API keys (guardadas con st.secrets en producción)
+API_KEY = st.secrets["AZURE_TEXT_API_KEY"]
+ENDPOINT = st.secrets["AZURE_TEXT_ENDPOINT"]
 
-#export OPENAI_API_KEY="TU_KEY"
+headers = {
+    "Ocp-Apim-Subscription-Key": API_KEY,
+    "Content-Type": "application/json"
+}
 
-with st.sidebar:
-
-    st.title("Usando la API de OpenAI")
-
-    image = Image.open('openai.jpg')
-    st.image(image, caption = 'OpenAI')
-
-    st.markdown(
-        """
-        Integrando OpenAI con Streamlit.
-    """
-    )
-
-def clear_chat_history():
-    st.session_state.messages = [{"role" : "assistant", "content": msg_chatbot}]
-
-st.sidebar.button('Limpiar historial de chat', on_click = clear_chat_history)
-
-msg_chatbot = """
-        Soy un chatbot que está integrado a la API de OpenAI: 
-
-        ### Preguntas frecuentes
-        
-        - ¿Quién eres?
-        - ¿Cómo funcionas?
-        - ¿Cuál es tu capacidad o límite de conocimientos?
-        - ¿Puedes ayudarme con mi tarea/trabajo/estudio?
-        - ¿Tienes emociones o conciencia?
-        - Lo que desees
-"""
-
-def get_response_openai(prompt):
-    
-    model = "gpt-3.5-turbo"
-
-    message_input = {
-        'messages': [
-            {'role': 'system', 'content': 'Eres un asistente virtual'},
-            {'role': 'user', 'content': prompt}
+def analizar_sentimiento(texto):
+    data = {
+        "documents": [
+            {
+                "language": "es",
+                "id": "1",
+                "text": texto
+            }
         ]
     }
+    url = f"{ENDPOINT}/text/analytics/v3.0/sentiment"
+    response = requests.post(url, headers=headers, json=data)
+    return response.json()
 
-    # Realiza una solicitud a la API de OpenAI
-    response = openai.ChatCompletion.create(
-        model = model,
-        messages = message_input['messages'],
-        temperature = 0, #Si está más cercano a 1, es posible que tenga alucinaciones.
-        n = 1, #Número de respuestas
-        max_tokens = 200
-        )
+st.title("🔍 Analizador de Sentimiento con Azure")
 
-    result = response['choices'][0]['message']['content']
-    return result
+texto = st.text_area("Escribe un texto para analizar el sentimiento")
 
-#Si no existe la variable messages, se crea la variable y se muestra por defecto el mensaje de bienvenida al chatbot.
-if "messages" not in st.session_state.keys():
-    st.session_state.messages = [{"role": "assistant", "content" : msg_chatbot}]
+if st.button("Analizar"):
+    resultado = analizar_sentimiento(texto)
+    sentimiento = resultado['documents'][0]['sentiment']
+    st.write(f"💬 El sentimiento detectado es: **{sentimiento.upper()}**")
 
-# Muestra todos los mensajes de la conversación
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.write(message["content"])
-
-prompt = st.chat_input("Ingresa tu pregunta")
-if prompt:
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.write(prompt)
-
-# Generar una nueva respuesta si el último mensaje no es de un assistant, sino un user
-if st.session_state.messages[-1]["role"] != "assistant":
-    with st.chat_message("assistant"):
-        with st.spinner("Esperando respuesta, dame unos segundos."):
-            
-            response = get_response_openai(prompt)
-            placeholder = st.empty()
-            full_response = ''
-            
-            for item in response:
-                full_response += item
-                placeholder.markdown(full_response)
-
-            placeholder.markdown(full_response)
-
-    message = {"role" : "assistant", "content" : full_response}
-    st.session_state.messages.append(message) #Agrega elemento a la caché de mensajes de chat.
